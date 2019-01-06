@@ -5,7 +5,10 @@ BINNAME ?= "polybar-ab"
 PREFIX    ?= /usr/local
 BINPREFIX ?= $(PREFIX)/bin
 
-all: build strip install
+all: getdeps build strip install
+
+getdeps:
+	go get -u github.com/distatus/battery/cmd/battery
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o $$(pwd)/$(BINNAME)
