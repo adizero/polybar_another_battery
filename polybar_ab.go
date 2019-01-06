@@ -13,11 +13,49 @@ import "C"
 import (
   "os"
   "fmt"
+  "math"
   "time"
   "strconv"
   "flag"
   "github.com/distatus/battery"
+  // "log"
+  "os/signal"
+  "syscall"
 )
+
+var toggle int = 0
+
+var timeoutchan chan bool
+
+type myObject struct {
+}
+
+func (obj *myObject) ReloadConfig() {
+    toggle = (toggle + 1) % 3
+    // timeoutchan <- true
+    select {
+    case timeoutchan <- true:
+      // log.Printf("sent true %d", toggle)
+    default:
+      // log.Println("nothing sent %d", toggle)
+    }
+}
+
+type MainObject interface {
+    ReloadConfig()
+}
+
+func handleSignals(main MainObject) {
+    c := make(chan os.Signal, 1)
+    // signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+    signal.Notify(c, syscall.SIGUSR1)
+    for sig := range c {
+        switch sig {
+        case syscall.SIGUSR1:
+            main.ReloadConfig()
+        }
+    }
+}
 
 var flagdebug bool
 var flagsimple bool
@@ -28,7 +66,18 @@ var flagversion bool
 
 var version string
 
+func fmt_time_left(d int) string {
+    h := d / 3600
+    d -= h * 3600
+    m := d / 60
+    return fmt.Sprintf("%02d:%02d", h, m)
+}
+
 func main() {
+  timeoutchan = make(chan bool)
+  obj := &myObject{}
+  go handleSignals(obj)
+
   var state string
 
   flag_init()
@@ -50,6 +99,7 @@ func main() {
     }
     for i, battery := range batteries {
       if flagdebug {
+        fmt.Printf("%s:\n", battery)
         fmt.Printf("Bat%d:\n", i)
         fmt.Printf("  state: %v %f\n", battery.State, battery.State)
       }
@@ -77,9 +127,29 @@ func main() {
         notify_send("Battery low!", body, 1)
       }
 
+      watts := battery.ChargeRate / 1000
+      var hours_left float64 = 0
+      if battery.ChargeRate != 0 {
+        if battery.State == 3 {
+            hours_left = (battery.Full - battery.Current) / battery.ChargeRate
+        } else {
+            hours_left = battery.Current / battery.ChargeRate
+        }
+        if hours_left < 0 {
+          hours_left = 0
+        }
+      }
+      seconds_left := int(hours_left  * 3600)
+      // modTime := time.Now().Round(0).Add(-seconds_left * time.Second)
+      // since := time.Since(modTime)
+      // fmt.Println(since)
+
       if flagdebug {
+        fmt.Printf("  Watts : %.2fW \n", watts)
+        fmt.Printf("  Seconds left : %ds \n", seconds_left)
+        fmt.Printf("  Time left : %s \n", fmt_time_left(seconds_left))
         fmt.Printf("  Charge percent: %.2f \n", percent)
-        fmt.Printf("  Sleep sec: %v \n", 10)
+        fmt.Printf("  Sleep sec: %v \n", time.Second)
         fmt.Printf("  Time: %v \n", time.Now())
       }
 
@@ -87,12 +157,16 @@ func main() {
         fmt.Printf("%.2f\n", percent)
       }
       if flagpolybar {
-        polybar_out(percent, battery.State)
+        polybar_out(percent, seconds_left, watts, battery.State)
       }
       if flagonce {
         os.Exit(0)
       }
-      time.Sleep(1 * time.Second)
+      // time.Sleep(1 * time.Second)
+      select {
+      case <-timeoutchan:
+      case <-time.After(1 * time.Second):
+      }
     }
   }
 }
@@ -142,7 +216,7 @@ func notify_send(summary, body string, urg int) {
   }
 }
 
-func polybar_out(val float64, state battery.State) {
+func polybar_out(val float64, seconds_left int, watts float64, state battery.State) {
   if flagdebug {
     fmt.Printf("Debug polybar: val=%v, state=%v\n", val, state)
   }
@@ -161,22 +235,41 @@ func polybar_out(val float64, state battery.State) {
   color := get_color(val)
 
   switch state {
+    // Unknown
+    case 0:
+      fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%?\n", color, bat_icons[9], color_default, int(math.Round(val)))
     // Empty
     case 1:
-      fmt.Printf("%%{F#%v} %v %%{F#%v}%.2f%%\n", color, bat_icons[0], color_default, val)
+      fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%\n", color, bat_icons[0], color_default, int(math.Round(val)))
     // Full
     case 2:
-      fmt.Printf("%%{F#%v} %v %%{F#%v}%.2f%%\n", color, bat_icons[9], color_default, val)
-    // Unknown, Charging
-    case 0,3:
+      fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%\n", color, bat_icons[9], color_default, int(math.Round(val)))
+    // Charging
+    case 3:
       for i := 0; i < 10; i++ {
-        fmt.Printf("%%{F#%v} %s %%{F#%v}%.2f%%\n", color, bat_icons[i], color_default, val)
-        time.Sleep(100 * time.Millisecond)
+        if toggle == 0 {
+          fmt.Printf("%%{F#%v}%s %%{F#%v}%.2f%%\n", color, bat_icons[i], color_default, val)
+        } else if toggle == 1 {
+          fmt.Printf("%%{F#%v}%s %%{F#%v}%.2f%% (%s)\n", color, bat_icons[i], color_default, val, fmt_time_left(seconds_left))
+        } else {
+          fmt.Printf("%%{F#%v}%s %%{F#%v}%.2f%% (%s / %.2fW)\n", color, bat_icons[i], color_default, val, fmt_time_left(seconds_left), watts)
+        }
+        // time.Sleep(100 * time.Millisecond)
+        select {
+        case <-timeoutchan:
+        case <-time.After(100 * time.Millisecond):
+        }
       }
     // Discharging
     case 4:
       level := val / 10
-      fmt.Printf("%%{F#%v} %s %%{F#%v}%.2f%%\n", color, bat_icons[int(level)], color_default, val)
+      if toggle == 0 {
+        fmt.Printf("%%{F#%v}%s %.2f%%%%{F#%v}\n", color, bat_icons[int(level)], val, fmt_time_left(seconds_left))
+      } else if toggle == 1 {
+        fmt.Printf("%%{F#%v}%s %.2f%% (%s)%%{F#%v}\n", color, bat_icons[int(level)], val, fmt_time_left(seconds_left), color_default)
+      } else {
+        fmt.Printf("%%{F#%v}%s %.2f%% (%s / %.2fW)%%{F#%v}\n", color, bat_icons[int(level)], val, fmt_time_left(seconds_left), watts, color_default)
+      }
       if flagdebug {
         fmt.Printf("Polybar discharge pict: %v\n", int(level))
       }
