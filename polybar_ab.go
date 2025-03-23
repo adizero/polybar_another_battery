@@ -230,7 +230,8 @@ func polybar_out(val float64, seconds_left int, watts float64, state battery.Sta
                         "\xee\x89\x88",
                         "\xee\x89\x89",
                         "\xee\x89\x8a",
-                        "\xee\x89\x8b"}
+                        "\xee\x89\x8b",
+                        "\xee\x89\x8b",}
   color_default := "DFDFDF"
   color := get_color(val)
 
