@@ -98,6 +98,13 @@ func main() {
       return
     }
     for i, battery := range batteries {
+      if i != 0 {
+	// time.Sleep(1 * time.Second)
+	select {
+	case <-timeoutchan:
+	case <-time.After(1 * time.Second):
+	}
+      }
       if flagdebug {
         fmt.Printf("%s:\n", battery)
         fmt.Printf("Bat%d:\n", i)
@@ -162,11 +169,14 @@ func main() {
       if flagonce {
         os.Exit(0)
       }
-      // time.Sleep(1 * time.Second)
-      select {
-      case <-timeoutchan:
-      case <-time.After(1 * time.Second):
-      }
+    }
+    if flagonce {
+      os.Exit(1)
+    }
+    // time.Sleep(1 * time.Second)
+    select {
+    case <-timeoutchan:
+    case <-time.After(1 * time.Second):
     }
   }
 }
