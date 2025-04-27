@@ -275,7 +275,7 @@ func polybar_out(val float64, seconds_left int, watts float64, state battery.Sta
     case 4:
       level := val / 10
       if toggle == 0 {
-        fmt.Printf("%%{F#%v}%s %.2f%%%%{F#%v}\n", color, bat_icons[int(level)], val, fmt_time_left(seconds_left))
+        fmt.Printf("%%{F#%v}%s %.2f%%%%{F#%v}\n", color, bat_icons[int(level)], val, color_default)
       } else if toggle == 1 {
         fmt.Printf("%%{F#%v}%s %.2f%% (%s)%%{F#%v}\n", color, bat_icons[int(level)], val, fmt_time_left(seconds_left), color_default)
       } else {
