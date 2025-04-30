@@ -95,7 +95,6 @@ func main() {
     batteries, err := battery.GetAll()
     if err != nil {
       fmt.Println("Could not get battery info!")
-      return
     }
     for i, battery := range batteries {
       if i != 0 {
