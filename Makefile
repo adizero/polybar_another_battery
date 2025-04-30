@@ -15,6 +15,9 @@ getdeps:
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o $$(pwd)/$(BINNAME)
+altbuild:
+	go build -ldflags "-X main.version=$(VERSION)" polybar_ab.go
+	mv polybar_ab polybar-ab
 
 install:
 	install -D -m 755 -o root -g root $(BINNAME) $(DESTDIR)$(BINPREFIX)/$(BINNAME)
