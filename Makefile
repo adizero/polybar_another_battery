@@ -5,7 +5,10 @@ BINNAME ?= "polybar-ab"
 PREFIX    ?= /usr/local
 BINPREFIX ?= $(PREFIX)/bin
 
-all: getdeps build strip install
+all: init getdeps build strip install
+
+init:
+	go mod init polybar-ab
 
 getdeps:
 	go get -u github.com/distatus/battery/cmd/battery
