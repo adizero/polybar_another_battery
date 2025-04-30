@@ -227,14 +227,15 @@ func polybar_out(val float64, seconds_left int, watts float64, state string) {
                         "\xee\x89\x8b",}
   color_default := "DFDFDF"
   color := get_color(val)
+  level := val / 10
 
   switch state {
     // Undefined
     case "Undefined":
-      fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%??\n", color, bat_icons[9], color_default, int(math.Round(val)))
+      fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%??\n", color, bat_icons[int(level)], color_default, int(math.Round(val)))
     // Unknown
     case "Unknown":
-      fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%?\n", color, bat_icons[9], color_default, int(math.Round(val)))
+      fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%?\n", color, bat_icons[int(level)], color_default, int(math.Round(val)))
     // Empty
     case "Empty":
       fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%\n", color, bat_icons[0], color_default, int(math.Round(val)))
@@ -259,7 +260,6 @@ func polybar_out(val float64, seconds_left int, watts float64, state string) {
       }
     // Discharging
     case "Discharging":
-      level := val / 10
       if toggle == 0 {
         fmt.Printf("%%{F#%v}%s %.2f%%%%{F#%v}\n", color, bat_icons[int(level)], val, color_default)
       } else if toggle == 1 {
@@ -272,7 +272,7 @@ func polybar_out(val float64, seconds_left int, watts float64, state string) {
       }
     // Idle
     case "Idle":
-      fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%@\n", color, bat_icons[9], color_default, int(math.Round(val)))
+      fmt.Printf("%%{F#%v}%v %%{F#%v}@%d%%\n", color, bat_icons[9], color_default, int(math.Round(val)))
   }
 }
 
