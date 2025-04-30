@@ -78,8 +78,6 @@ func main() {
   obj := &myObject{}
   go handleSignals(obj)
 
-  var state string
-
   flag_init()
   if flagversion {
     fmt.Printf("Version: %s\n", version)
@@ -98,37 +96,23 @@ func main() {
     }
     for i, battery := range batteries {
       if i != 0 {
-	// time.Sleep(1 * time.Second)
-	select {
-	case <-timeoutchan:
-	case <-time.After(1 * time.Second):
-	}
+        // time.Sleep(1 * time.Second)
+        select {
+        case <-timeoutchan:
+        case <-time.After(1 * time.Second):
+        }
       }
       if flagdebug {
         fmt.Printf("%s:\n", battery)
         fmt.Printf("Bat%d:\n", i)
-        fmt.Printf("  state: %v %f\n", battery.State, battery.State)
+        fmt.Printf("  state: %v %s\n", battery.State, battery.State)
       }
 
-      switch battery.State {
-      case 1:
-        state = "Empty"
-      case 2:
-        state = "Full"
-      case 3:
-        state = "Charging"
-      case 4:
-        state = "Discharging"
-      default:
-        state = "Unknown"
-      }
+      state := battery.State.String()
 
-      percent := battery.Current / (battery.Full * 0.01)
-      if percent > 100.0 {
-        percent = 100.0
-      }
+      percent := min(battery.Current / (battery.Full * 0.01), 100.0)
 
-      if percent < float64(flagthr) && battery.State != 3 {
+      if percent < float64(flagthr) && state != "Charging" {
         body := "Charge percent: " + strconv.FormatFloat(percent, 'f', 2, 32) + "\nState: " + state
         notify_send("Battery low!", body, 1)
       }
@@ -136,7 +120,7 @@ func main() {
       watts := battery.ChargeRate / 1000
       var hours_left float64 = 0
       if battery.ChargeRate != 0 {
-        if battery.State == 3 {
+        if state == "Charging" {
             hours_left = (battery.Full - battery.Current) / battery.ChargeRate
         } else {
             hours_left = battery.Current / battery.ChargeRate
@@ -163,7 +147,7 @@ func main() {
         fmt.Printf("%.2f\n", percent)
       }
       if flagpolybar {
-        polybar_out(percent, seconds_left, watts, battery.State)
+        polybar_out(percent, seconds_left, watts, state)
       }
       if flagonce {
         os.Exit(0)
@@ -225,7 +209,7 @@ func notify_send(summary, body string, urg int) {
   }
 }
 
-func polybar_out(val float64, seconds_left int, watts float64, state battery.State) {
+func polybar_out(val float64, seconds_left int, watts float64, state string) {
   if flagdebug {
     fmt.Printf("Debug polybar: val=%v, state=%v\n", val, state)
   }
@@ -245,18 +229,21 @@ func polybar_out(val float64, seconds_left int, watts float64, state battery.Sta
   color := get_color(val)
 
   switch state {
+    // Undefined
+    case "Undefined":
+      fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%??\n", color, bat_icons[9], color_default, int(math.Round(val)))
     // Unknown
-    case 0:
+    case "Unknown":
       fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%?\n", color, bat_icons[9], color_default, int(math.Round(val)))
     // Empty
-    case 1:
+    case "Empty":
       fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%\n", color, bat_icons[0], color_default, int(math.Round(val)))
     // Full
-    case 2:
+    case "Full":
       fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%\n", color, bat_icons[9], color_default, int(math.Round(val)))
     // Charging
-    case 3:
-      for i := 0; i < 10; i++ {
+    case "Charging":
+      for i := range 10 {
         if toggle == 0 {
           fmt.Printf("%%{F#%v}%s %%{F#%v}%.2f%%\n", color, bat_icons[i], color_default, val)
         } else if toggle == 1 {
@@ -271,7 +258,7 @@ func polybar_out(val float64, seconds_left int, watts float64, state battery.Sta
         }
       }
     // Discharging
-    case 4:
+    case "Discharging":
       level := val / 10
       if toggle == 0 {
         fmt.Printf("%%{F#%v}%s %.2f%%%%{F#%v}\n", color, bat_icons[int(level)], val, color_default)
@@ -283,7 +270,10 @@ func polybar_out(val float64, seconds_left int, watts float64, state battery.Sta
       if flagdebug {
         fmt.Printf("Polybar discharge pict: %v\n", int(level))
       }
-    }
+    // Idle
+    case "Idle":
+      fmt.Printf("%%{F#%v}%v %%{F#%v}%d%%@\n", color, bat_icons[9], color_default, int(math.Round(val)))
+  }
 }
 
 func get_color(val float64) string {
