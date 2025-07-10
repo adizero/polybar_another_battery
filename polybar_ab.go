@@ -188,6 +188,8 @@ func flag_init() {
   }
 }
 
+var notification *C.NotifyNotification
+
 func notify_send(summary, body string, urg int) {
   csummary := C.CString(summary)
   cbody := C.CString(body)
@@ -201,9 +203,15 @@ func notify_send(summary, body string, urg int) {
   case 3:
     curg = C.NOTIFY_URGENCY_LOW
   }
-  n := C.notify_notification_new(csummary, cbody, nil)
-  C.notify_notification_set_urgency(n, curg)
-  ret := C.notify_notification_show(n, nil)
+
+  if notification == nil {
+    notification = C.notify_notification_new(csummary, cbody, nil)
+  } else {
+    C.notify_notification_update(notification, csummary, cbody, nil)
+  }
+
+  C.notify_notification_set_urgency(notification, curg)
+  ret := C.notify_notification_show(notification, nil)
   if ret != 1 {
     fmt.Printf("Notification show failed. Returned: %v\n", ret)
   }

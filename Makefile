@@ -5,9 +5,9 @@ BINNAME ?= "polybar-ab"
 PREFIX    ?= /usr/local
 BINPREFIX ?= $(PREFIX)/bin
 
-all: init getdeps build strip install
+all: go.mod getdeps build strip install
 
-init:
+go.mod:
 	go mod init polybar-ab
 
 getdeps:
@@ -15,6 +15,7 @@ getdeps:
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o $$(pwd)/$(BINNAME)
+
 altbuild:
 	go build -ldflags "-X main.version=$(VERSION)" polybar_ab.go
 	mv polybar_ab polybar-ab
@@ -30,3 +31,4 @@ strip:
 
 clean:
 	rm -rf $(BINNAME)
+	rm -rf go.mod
