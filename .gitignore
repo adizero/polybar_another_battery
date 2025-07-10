@@ -1,2 +1,4 @@
 /polybar-ab
 *.swp
+go.mod
+go.sum
