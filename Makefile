@@ -1,34 +1,39 @@
 VERCMD  ?= git describe --long --tags 2> /dev/null
 VERSION ?= $(shell $(VERCMD) || cat VERSION)
-BINNAME ?= "polybar-ab"
+BINNAME ?= polybar-ab
 
 PREFIX    ?= /usr/local
 BINPREFIX ?= $(PREFIX)/bin
 
-all: go.mod getdeps build strip install
+SOURCES := polybar_ab.go
 
-go.mod:
+all: init getdeps build strip install
+
+init:
+ifeq ($(wildcard go.mod),)
 	go mod init polybar-ab
+endif
 
 getdeps:
 	go get -u github.com/distatus/battery/cmd/battery
 
-build:
-	go build -ldflags "-X main.version=$(VERSION)" -o $$(pwd)/$(BINNAME)
+build: $(SOURCES)
+	go build -ldflags "-X main.version=$(VERSION)" -o $(BINNAME) $^
 
-altbuild:
-	go build -ldflags "-X main.version=$(VERSION)" polybar_ab.go
-	mv polybar_ab polybar-ab
+altbuild: $(SOURCES)
+	go build -ldflags "-X main.version=$(VERSION)" $^
+	mv polybar_ab $(BINNAME)
 
-install:
+install: $(BINNAME)
 	install -D -m 755 -o root -g root $(BINNAME) $(DESTDIR)$(BINPREFIX)/$(BINNAME)
 
 uninstall:
 	rm -rf "$(DESTDIR)$(BINPREFIX)/$(BINNAME)"
 
-strip:
+strip: $(BINNAME)
 	strip $(BINNAME)
 
 clean:
 	rm -rf $(BINNAME)
 	rm -rf go.mod
+	rm -rf go.sum
