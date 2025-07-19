@@ -165,7 +165,7 @@ func main() {
 }
 
 func notify_init() {
-  cs := C.CString("test")
+  cs := C.CString("polybar-ab")
   ret := C.notify_init(cs)
   if ret != 1 {
     fmt.Printf("Notification init failed. Returned: %v\n", ret)
